@@ -12,6 +12,9 @@ const state = {
   defaultDir: "",
   logSource: null,
   drawerTrigger: null,
+  drawerRequestId: 0,
+  containersLoaded: false,
+  imagesLoaded: false,
 };
 
 function h(tag, attrs = {}, ...children) {
@@ -129,7 +132,17 @@ function renderContainers() {
       );
     }),
   );
-  $("#containers-empty").hidden = rows.length > 0;
+  const empty = $("#containers-empty");
+  empty.hidden = rows.length > 0;
+  if (!rows.length) {
+    empty.textContent = !state.containersLoaded
+      ? "Loading containers…"
+      : filter
+        ? `No ${showAll ? "containers" : "running containers"} match your filter.`
+        : !showAll && state.containers.length
+          ? "No running containers."
+          : "No containers found.";
+  }
 }
 
 function shortImage(image) {
@@ -173,7 +186,11 @@ function renderImages() {
       ),
     ),
   );
-  $("#images-empty").hidden = rows.length > 0;
+  const empty = $("#images-empty");
+  empty.hidden = rows.length > 0;
+  if (!rows.length) {
+    empty.textContent = !state.imagesLoaded ? "Loading images…" : filter ? "No images match your filter." : "No images found.";
+  }
 }
 
 function riskList(risks) {
@@ -263,6 +280,7 @@ function renderOperations() {
 // ---- drawer: logs & inspect -----------------------------------------------------------
 
 function openDrawer(title, trigger) {
+  state.drawerRequestId += 1;
   state.drawerTrigger?.setAttribute("aria-expanded", "false");
   closeLogStream();
   state.drawerTrigger = trigger ?? document.activeElement;
@@ -271,6 +289,7 @@ function openDrawer(title, trigger) {
   $("#drawer-body").replaceChildren();
   $("#drawer").hidden = false;
   $("#drawer").focus();
+  return state.drawerRequestId;
 }
 
 function closeLogStream() {
@@ -279,9 +298,11 @@ function closeLogStream() {
 }
 
 function closeDrawer() {
+  state.drawerRequestId += 1;
   closeLogStream();
   $("#drawer").hidden = true;
   if (state.drawerTrigger?.isConnected) state.drawerTrigger.focus();
+  else if (state.view === "containers") $("#container-filter").focus();
   state.drawerTrigger?.setAttribute("aria-expanded", "false");
   state.drawerTrigger = null;
 }
@@ -309,13 +330,13 @@ function openLogs(container, trigger) {
 }
 
 async function openInspect(container, trigger) {
-  openDrawer(`Inspect — ${container.name}`, trigger);
+  const requestId = openDrawer(`Inspect — ${container.name}`, trigger);
   $("#follow-wrap").hidden = true;
   try {
     const result = await op("inspect_container", { container: container.name }, { quiet: true });
-    $("#drawer-body").textContent = JSON.stringify(result, null, 2);
+    if (requestId === state.drawerRequestId) $("#drawer-body").textContent = JSON.stringify(result, null, 2);
   } catch (error) {
-    $("#drawer-body").textContent = error.message;
+    if (requestId === state.drawerRequestId) $("#drawer-body").textContent = error.message;
   }
 }
 
@@ -510,14 +531,18 @@ function connectEvents() {
     target.className = `pill ${status.daemonReachable ? "ok" : "err"}`;
     $("#banner").hidden = status.daemonReachable;
     if (!status.daemonReachable) $("#banner").textContent = "Docker daemon is not reachable. Start Docker Desktop and the panel will reconnect.";
+    if (!state.containersLoaded) $("#containers-empty").textContent = status.daemonReachable ? "Loading containers…" : "Waiting for Docker daemon…";
+    if (!state.imagesLoaded) $("#images-empty").textContent = status.daemonReachable ? "Loading images…" : "Waiting for Docker daemon…";
   });
   on("containers", (list) => {
     state.containers = list;
+    state.containersLoaded = true;
     $("#banner").hidden = true;
     renderContainers();
   });
   on("images", (list) => {
     state.images = list;
+    state.imagesLoaded = true;
     renderImages();
   });
   on("stats", (list) => {
