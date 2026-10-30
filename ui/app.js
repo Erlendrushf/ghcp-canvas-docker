@@ -100,17 +100,17 @@ function renderContainers() {
         {},
         h(
           "td",
-          { class: "name-cell" },
+          { class: "name-cell", "data-label": "Container" },
           h("div", { class: "name", title: c.name }, c.name),
           h("div", { class: "sub mono", title: c.image }, shortImage(c.image)),
           c.composeProject ? h("div", { class: "sub" }, `compose: ${c.composeProject} · ${c.composeService}`) : null,
         ),
-        h("td", {}, stateBadge(c.state, c.status), h("div", { class: "sub" }, c.status)),
-        h("td", { class: "mono ports" }, formatPorts(c.ports)),
-        h("td", { class: "mono" }, running ? [h("div", {}, stats?.cpu ?? "…"), h("div", { class: "sub" }, stats?.memory?.split(" / ")[0] ?? "")] : ""),
+        h("td", { "data-label": "State" }, stateBadge(c.state, c.status), h("div", { class: "sub" }, c.status)),
+        h("td", { class: "mono ports", "data-label": "Ports" }, formatPorts(c.ports)),
+        h("td", { class: "mono", "data-label": "CPU / Mem" }, running ? [h("div", {}, stats?.cpu ?? "…"), h("div", { class: "sub" }, stats?.memory?.split(" / ")[0] ?? "")] : ""),
         h(
           "td",
-          { class: "actions" },
+          { class: "actions", "data-label": "Actions" },
           h(
             "div",
             { class: "btns" },
@@ -149,12 +149,12 @@ function renderImages() {
       h(
         "tr",
         {},
-        h("td", { class: "name-cell" }, h("div", { class: "name mono", title: img.reference }, img.repository === "<none>" ? "<none>" : `${img.repository}:${img.tag}`), h("div", { class: "sub" }, img.createdSince)),
-        h("td", { class: "mono" }, String(img.id).replace(/^sha256:/, "").slice(0, 12)),
-        h("td", {}, img.size),
+        h("td", { class: "name-cell", "data-label": "Image" }, h("div", { class: "name mono", title: img.reference }, img.repository === "<none>" ? "<none>" : `${img.repository}:${img.tag}`), h("div", { class: "sub" }, img.createdSince)),
+        h("td", { class: "mono", "data-label": "ID" }, String(img.id).replace(/^sha256:/, "").slice(0, 12)),
+        h("td", { "data-label": "Size" }, img.size),
         h(
           "td",
-          { class: "actions" },
+          { class: "actions", "data-label": "Actions" },
           h(
             "button",
             {
