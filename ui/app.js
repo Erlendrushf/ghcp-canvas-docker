@@ -11,6 +11,10 @@ const state = {
   operations: new Map(),
   defaultDir: "",
   logSource: null,
+  drawerTrigger: null,
+  drawerRequestId: 0,
+  containersLoaded: false,
+  imagesLoaded: false,
 };
 
 function h(tag, attrs = {}, ...children) {
@@ -75,7 +79,7 @@ function toast(message, isError = false) {
 
 function setView(view) {
   state.view = view;
-  for (const tab of document.querySelectorAll(".tabs button")) tab.setAttribute("aria-selected", String(tab.dataset.view === view));
+  for (const tab of document.querySelectorAll(".tabs button")) tab.setAttribute("aria-pressed", String(tab.dataset.view === view));
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== `view-${view}`;
 }
 
@@ -100,17 +104,17 @@ function renderContainers() {
         {},
         h(
           "td",
-          { class: "name-cell" },
+          { class: "name-cell", "data-label": "Container" },
           h("div", { class: "name", title: c.name }, c.name),
           h("div", { class: "sub mono", title: c.image }, shortImage(c.image)),
           c.composeProject ? h("div", { class: "sub" }, `compose: ${c.composeProject} · ${c.composeService}`) : null,
         ),
-        h("td", {}, stateBadge(c.state, c.status), h("div", { class: "sub" }, c.status)),
-        h("td", { class: "mono ports" }, formatPorts(c.ports)),
-        h("td", { class: "mono" }, running ? [h("div", {}, stats?.cpu ?? "…"), h("div", { class: "sub" }, stats?.memory?.split(" / ")[0] ?? "")] : ""),
+        h("td", { "data-label": "State" }, stateBadge(c.state, c.status), h("div", { class: "sub" }, c.status)),
+        h("td", { class: "mono ports", "data-label": "Ports" }, formatPorts(c.ports)),
+        h("td", { class: "mono", "data-label": "CPU / Mem" }, running ? [h("div", {}, stats?.cpu ?? "…"), h("div", { class: "sub" }, stats?.memory?.split(" / ")[0] ?? "")] : ""),
         h(
           "td",
-          { class: "actions" },
+          { class: "actions", "data-label": "Actions" },
           h(
             "div",
             { class: "btns" },
@@ -120,15 +124,25 @@ function renderContainers() {
                 h("button", { class: "small", onclick: () => op("restart_container", { container: c.name }, { quiet: true }) }, "Restart"),
               ]
             : h("button", { class: "small", onclick: () => op("start_container", { container: c.name }, { quiet: true }) }, "Start"),
-          h("button", { class: "small", onclick: () => openLogs(c) }, "Logs"),
-          h("button", { class: "small", onclick: () => openInspect(c) }, "Inspect"),
+          h("button", { class: "small", "aria-controls": "drawer", "aria-expanded": "false", onclick: (event) => openLogs(c, event.currentTarget) }, "Logs"),
+          h("button", { class: "small", "aria-controls": "drawer", "aria-expanded": "false", onclick: (event) => openInspect(c, event.currentTarget) }, "Inspect"),
           h("button", { class: "small danger", onclick: () => op("remove_container", { container: c.name, force: running }) }, "Remove"),
           ),
         ),
       );
     }),
   );
-  $("#containers-empty").hidden = rows.length > 0;
+  const empty = $("#containers-empty");
+  empty.hidden = rows.length > 0;
+  if (!rows.length) {
+    empty.textContent = !state.containersLoaded
+      ? "Loading containers…"
+      : filter
+        ? `No ${showAll ? "containers" : "running containers"} match your filter.`
+        : !showAll && state.containers.length
+          ? "No running containers."
+          : "No containers found.";
+  }
 }
 
 function shortImage(image) {
@@ -149,12 +163,12 @@ function renderImages() {
       h(
         "tr",
         {},
-        h("td", { class: "name-cell" }, h("div", { class: "name mono", title: img.reference }, img.repository === "<none>" ? "<none>" : `${img.repository}:${img.tag}`), h("div", { class: "sub" }, img.createdSince)),
-        h("td", { class: "mono" }, String(img.id).replace(/^sha256:/, "").slice(0, 12)),
-        h("td", {}, img.size),
+        h("td", { class: "name-cell", "data-label": "Image" }, h("div", { class: "name mono", title: img.reference }, img.repository === "<none>" ? "<none>" : `${img.repository}:${img.tag}`), h("div", { class: "sub" }, img.createdSince)),
+        h("td", { class: "mono", "data-label": "ID" }, String(img.id).replace(/^sha256:/, "").slice(0, 12)),
+        h("td", { "data-label": "Size" }, img.size),
         h(
           "td",
-          { class: "actions" },
+          { class: "actions", "data-label": "Actions" },
           h(
             "button",
             {
@@ -172,7 +186,11 @@ function renderImages() {
       ),
     ),
   );
-  $("#images-empty").hidden = rows.length > 0;
+  const empty = $("#images-empty");
+  empty.hidden = rows.length > 0;
+  if (!rows.length) {
+    empty.textContent = !state.imagesLoaded ? "Loading images…" : filter ? "No images match your filter." : "No images found.";
+  }
 }
 
 function riskList(risks) {
@@ -261,11 +279,17 @@ function renderOperations() {
 
 // ---- drawer: logs & inspect -----------------------------------------------------------
 
-function openDrawer(title) {
+function openDrawer(title, trigger) {
+  state.drawerRequestId += 1;
+  state.drawerTrigger?.setAttribute("aria-expanded", "false");
   closeLogStream();
+  state.drawerTrigger = trigger ?? document.activeElement;
+  state.drawerTrigger?.setAttribute("aria-expanded", "true");
   $("#drawer-title").textContent = title;
   $("#drawer-body").replaceChildren();
   $("#drawer").hidden = false;
+  $("#drawer").focus();
+  return state.drawerRequestId;
 }
 
 function closeLogStream() {
@@ -273,8 +297,18 @@ function closeLogStream() {
   state.logSource = null;
 }
 
-function openLogs(container) {
-  openDrawer(`Logs — ${container.name}`);
+function closeDrawer() {
+  state.drawerRequestId += 1;
+  closeLogStream();
+  $("#drawer").hidden = true;
+  if (state.drawerTrigger?.isConnected) state.drawerTrigger.focus();
+  else if (state.view === "containers") $("#container-filter").focus();
+  state.drawerTrigger?.setAttribute("aria-expanded", "false");
+  state.drawerTrigger = null;
+}
+
+function openLogs(container, trigger) {
+  openDrawer(`Logs — ${container.name}`, trigger);
   $("#follow-wrap").hidden = false;
   const pre = $("#drawer-body");
   const source = new EventSource(`api/logs?container=${encodeURIComponent(container.name)}&tail=300`);
@@ -295,14 +329,14 @@ function openLogs(container) {
   };
 }
 
-async function openInspect(container) {
-  openDrawer(`Inspect — ${container.name}`);
+async function openInspect(container, trigger) {
+  const requestId = openDrawer(`Inspect — ${container.name}`, trigger);
   $("#follow-wrap").hidden = true;
   try {
     const result = await op("inspect_container", { container: container.name }, { quiet: true });
-    $("#drawer-body").textContent = JSON.stringify(result, null, 2);
+    if (requestId === state.drawerRequestId) $("#drawer-body").textContent = JSON.stringify(result, null, 2);
   } catch (error) {
-    $("#drawer-body").textContent = error.message;
+    if (requestId === state.drawerRequestId) $("#drawer-body").textContent = error.message;
   }
 }
 
@@ -497,14 +531,18 @@ function connectEvents() {
     target.className = `pill ${status.daemonReachable ? "ok" : "err"}`;
     $("#banner").hidden = status.daemonReachable;
     if (!status.daemonReachable) $("#banner").textContent = "Docker daemon is not reachable. Start Docker Desktop and the panel will reconnect.";
+    if (!state.containersLoaded) $("#containers-empty").textContent = status.daemonReachable ? "Loading containers…" : "Waiting for Docker daemon…";
+    if (!state.imagesLoaded) $("#images-empty").textContent = status.daemonReachable ? "Loading images…" : "Waiting for Docker daemon…";
   });
   on("containers", (list) => {
     state.containers = list;
+    state.containersLoaded = true;
     $("#banner").hidden = true;
     renderContainers();
   });
   on("images", (list) => {
     state.images = list;
+    state.imagesLoaded = true;
     renderImages();
   });
   on("stats", (list) => {
@@ -533,10 +571,7 @@ async function main() {
   $("#show-all").addEventListener("change", renderContainers);
   $("#container-filter").addEventListener("input", renderContainers);
   $("#image-filter").addEventListener("input", renderImages);
-  $("#drawer-close").addEventListener("click", () => {
-    closeLogStream();
-    $("#drawer").hidden = true;
-  });
+  $("#drawer-close").addEventListener("click", closeDrawer);
 
   try {
     const boot = await api("api/bootstrap");
