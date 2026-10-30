@@ -14,11 +14,11 @@
         <strong>Docker</strong>
         <span id="target" class="pill muted">connecting…</span>
       </div>
-      <nav class="tabs" role="tablist">
-        <button role="tab" data-view="containers">Containers</button>
-        <button role="tab" data-view="images">Images</button>
-        <button role="tab" data-view="compose">Compose</button>
-        <button role="tab" data-view="activity">Activity <span id="approval-badge" class="badge" hidden></span></button>
+      <nav class="tabs" aria-label="Docker views">
+        <button id="view-button-containers" type="button" aria-controls="view-containers" aria-pressed="true" data-view="containers">Containers</button>
+        <button id="view-button-images" type="button" aria-controls="view-images" aria-pressed="false" data-view="images">Images</button>
+        <button id="view-button-compose" type="button" aria-controls="view-compose" aria-pressed="false" data-view="compose">Compose</button>
+        <button id="view-button-activity" type="button" aria-controls="view-activity" aria-pressed="false" data-view="activity">Activity <span id="approval-badge" class="badge" hidden></span></button>
       </nav>
     </header>
 
@@ -26,10 +26,10 @@
     <section id="approvals" class="approvals" aria-live="polite"></section>
 
     <main>
-      <section id="view-containers" class="view">
+      <section id="view-containers" class="view" aria-labelledby="view-button-containers">
         <div class="toolbar">
           <label class="check"><input type="checkbox" id="show-all" checked /> Show stopped</label>
-          <input type="search" id="container-filter" placeholder="Filter by name or image" />
+          <input type="search" id="container-filter" aria-label="Filter containers by name or image" placeholder="Filter by name or image" />
           <span class="spacer"></span>
           <button id="toggle-run" class="primary">Run container…</button>
         </div>
@@ -63,12 +63,12 @@
         </div>
       </section>
 
-      <section id="view-images" class="view" hidden>
+      <section id="view-images" class="view" aria-labelledby="view-button-images" hidden>
         <form id="pull-form" class="toolbar">
-          <input name="image" placeholder="Image to pull, e.g. redis:7-alpine" required autocomplete="off" />
+          <input name="image" aria-label="Image to pull" placeholder="Image to pull, e.g. redis:7-alpine" required autocomplete="off" />
           <button type="submit" class="primary">Pull</button>
           <span class="spacer"></span>
-          <input type="search" id="image-filter" placeholder="Filter images" />
+          <input type="search" id="image-filter" aria-label="Filter images" placeholder="Filter images" />
         </form>
         <div class="table-wrap">
           <table>
@@ -79,7 +79,7 @@
         </div>
       </section>
 
-      <section id="view-compose" class="view" hidden>
+      <section id="view-compose" class="view" aria-labelledby="view-button-compose" hidden>
         <form id="compose-form" class="card form">
           <div class="grid">
             <label class="wide">Project directory <input name="projectDir" required placeholder="/absolute/path/to/project" autocomplete="off" /></label>
@@ -100,7 +100,7 @@
         <div id="compose-output"></div>
       </section>
 
-      <section id="view-activity" class="view" hidden>
+      <section id="view-activity" class="view" aria-labelledby="view-button-activity" hidden>
         <h3>Operations</h3>
         <div id="operations"></div>
         <h3>Approval history</h3>
@@ -108,7 +108,7 @@
       </section>
     </main>
 
-    <aside id="drawer" class="drawer" hidden>
+    <aside id="drawer" class="drawer" role="region" aria-labelledby="drawer-title" tabindex="-1" hidden>
       <div class="drawer-head">
         <strong id="drawer-title"></strong>
         <span class="spacer"></span>

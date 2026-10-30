@@ -11,6 +11,7 @@ const state = {
   operations: new Map(),
   defaultDir: "",
   logSource: null,
+  drawerTrigger: null,
 };
 
 function h(tag, attrs = {}, ...children) {
@@ -75,7 +76,7 @@ function toast(message, isError = false) {
 
 function setView(view) {
   state.view = view;
-  for (const tab of document.querySelectorAll(".tabs button")) tab.setAttribute("aria-selected", String(tab.dataset.view === view));
+  for (const tab of document.querySelectorAll(".tabs button")) tab.setAttribute("aria-pressed", String(tab.dataset.view === view));
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== `view-${view}`;
 }
 
@@ -120,8 +121,8 @@ function renderContainers() {
                 h("button", { class: "small", onclick: () => op("restart_container", { container: c.name }, { quiet: true }) }, "Restart"),
               ]
             : h("button", { class: "small", onclick: () => op("start_container", { container: c.name }, { quiet: true }) }, "Start"),
-          h("button", { class: "small", onclick: () => openLogs(c) }, "Logs"),
-          h("button", { class: "small", onclick: () => openInspect(c) }, "Inspect"),
+          h("button", { class: "small", "aria-controls": "drawer", "aria-expanded": "false", onclick: (event) => openLogs(c, event.currentTarget) }, "Logs"),
+          h("button", { class: "small", "aria-controls": "drawer", "aria-expanded": "false", onclick: (event) => openInspect(c, event.currentTarget) }, "Inspect"),
           h("button", { class: "small danger", onclick: () => op("remove_container", { container: c.name, force: running }) }, "Remove"),
           ),
         ),
@@ -261,11 +262,15 @@ function renderOperations() {
 
 // ---- drawer: logs & inspect -----------------------------------------------------------
 
-function openDrawer(title) {
+function openDrawer(title, trigger) {
+  state.drawerTrigger?.setAttribute("aria-expanded", "false");
   closeLogStream();
+  state.drawerTrigger = trigger ?? document.activeElement;
+  state.drawerTrigger?.setAttribute("aria-expanded", "true");
   $("#drawer-title").textContent = title;
   $("#drawer-body").replaceChildren();
   $("#drawer").hidden = false;
+  $("#drawer").focus();
 }
 
 function closeLogStream() {
@@ -273,8 +278,16 @@ function closeLogStream() {
   state.logSource = null;
 }
 
-function openLogs(container) {
-  openDrawer(`Logs — ${container.name}`);
+function closeDrawer() {
+  closeLogStream();
+  $("#drawer").hidden = true;
+  if (state.drawerTrigger?.isConnected) state.drawerTrigger.focus();
+  state.drawerTrigger?.setAttribute("aria-expanded", "false");
+  state.drawerTrigger = null;
+}
+
+function openLogs(container, trigger) {
+  openDrawer(`Logs — ${container.name}`, trigger);
   $("#follow-wrap").hidden = false;
   const pre = $("#drawer-body");
   const source = new EventSource(`api/logs?container=${encodeURIComponent(container.name)}&tail=300`);
@@ -295,8 +308,8 @@ function openLogs(container) {
   };
 }
 
-async function openInspect(container) {
-  openDrawer(`Inspect — ${container.name}`);
+async function openInspect(container, trigger) {
+  openDrawer(`Inspect — ${container.name}`, trigger);
   $("#follow-wrap").hidden = true;
   try {
     const result = await op("inspect_container", { container: container.name }, { quiet: true });
@@ -533,10 +546,7 @@ async function main() {
   $("#show-all").addEventListener("change", renderContainers);
   $("#container-filter").addEventListener("input", renderContainers);
   $("#image-filter").addEventListener("input", renderImages);
-  $("#drawer-close").addEventListener("click", () => {
-    closeLogStream();
-    $("#drawer").hidden = true;
-  });
+  $("#drawer-close").addEventListener("click", closeDrawer);
 
   try {
     const boot = await api("api/bootstrap");

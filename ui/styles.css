@@ -15,6 +15,22 @@
   --orange-muted: var(--true-color-orange-muted, rgba(188, 76, 0, 0.12));
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --muted: var(--text-color-muted, #9198a1);
+    --border: var(--border-color-default, #3d444d);
+    --bg: var(--background-color-default, #0d1117);
+    --fg: var(--text-color-default, #e6edf3);
+    --green: var(--true-color-green, #3fb950);
+    --red: var(--true-color-red, #f85149);
+    --orange: var(--true-color-orange, #d29922);
+    --blue: var(--true-color-blue, #58a6ff);
+    --blue-muted: var(--true-color-blue-muted, rgba(56, 139, 253, 0.15));
+    --red-muted: var(--true-color-red-muted, rgba(248, 81, 73, 0.15));
+    --orange-muted: var(--true-color-orange-muted, rgba(187, 128, 9, 0.15));
+  }
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -73,7 +89,7 @@ textarea { resize: vertical; font-family: var(--font-mono, ui-monospace, monospa
 .logo { font-size: 16px; }
 .tabs { display: flex; gap: 2px; margin-left: auto; }
 .tabs button { border-color: transparent; }
-.tabs button[aria-selected="true"] { border-color: var(--border); background: var(--blue-muted); }
+.tabs button[aria-pressed="true"] { border-color: var(--border); background: var(--blue-muted); }
 
 .pill { border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 12px; }
 .pill.ok { border-color: var(--green); color: var(--green); }
